@@ -10,6 +10,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Textarea } from "@/components/ui/Textarea";
 import { useToast } from "@/components/ui/Toast";
 import { toDateString } from "@/lib/format";
+import { compressImage } from "@/lib/image";
 import type { DateEntryFull } from "@/lib/types";
 
 export type CompleteDateModalProps = {
@@ -37,6 +38,7 @@ export function CompleteDateModal({
   const [removedIds, setRemovedIds] = useState<string[]>([]);
   const [newPhotos, setNewPhotos] = useState<NewPhoto[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [processing, setProcessing] = useState(false);
 
   const nextKey = useRef(0);
   const objectUrls = useRef<string[]>([]);
@@ -59,15 +61,25 @@ export function CompleteDateModal({
     };
   }, []);
 
-  function handleAddPhotos(event: React.ChangeEvent<HTMLInputElement>) {
+  async function handleAddPhotos(event: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
-    const added = files.map((file) => {
-      const url = URL.createObjectURL(file);
-      objectUrls.current.push(url);
-      return { key: nextKey.current++, file, url };
-    });
-    setNewPhotos((current) => [...current, ...added]);
     event.target.value = "";
+    if (files.length === 0) return;
+
+    setProcessing(true);
+    try {
+      const compressed = await Promise.all(files.map(compressImage));
+      const added = compressed.map((file) => {
+        const url = URL.createObjectURL(file);
+        objectUrls.current.push(url);
+        return { key: nextKey.current++, file, url };
+      });
+      setNewPhotos((current) => [...current, ...added]);
+    } catch {
+      show("Fotos konnten nicht verarbeitet werden.", "error");
+    } finally {
+      setProcessing(false);
+    }
   }
 
   function removeNewPhoto(key: number) {
@@ -83,26 +95,31 @@ export function CompleteDateModal({
   }
 
   async function handleSubmit() {
-    if (!date || submitting) return;
+    if (!date || submitting || processing) return;
     setSubmitting(true);
 
-    const formData = new FormData();
-    formData.set("completed_on", completedOn);
-    formData.set("location", location);
-    formData.set("notes", notes);
-    if (rating > 0) formData.set("rating", String(rating));
-    formData.set("removedPhotoIds", JSON.stringify(removedIds));
-    newPhotos.forEach((photo) => formData.append("photos", photo.file));
+    try {
+      const formData = new FormData();
+      formData.set("completed_on", completedOn);
+      formData.set("location", location);
+      formData.set("notes", notes);
+      if (rating > 0) formData.set("rating", String(rating));
+      formData.set("removedPhotoIds", JSON.stringify(removedIds));
+      newPhotos.forEach((photo) => formData.append("photos", photo.file));
 
-    const result = await saveDateLog(date.id, formData);
-    setSubmitting(false);
-    if (result.error) {
-      show(result.error, "error");
-      return;
+      const result = await saveDateLog(date.id, formData);
+      if (result.error) {
+        show(result.error, "error");
+        return;
+      }
+      show(isEdit ? "Erinnerung aktualisiert." : "Als erledigt gespeichert 🎉");
+      onClose();
+      router.refresh();
+    } catch {
+      show("Speichern fehlgeschlagen. Bitte erneut versuchen.", "error");
+    } finally {
+      setSubmitting(false);
     }
-    show(isEdit ? "Erinnerung aktualisiert." : "Als erledigt gespeichert 🎉");
-    onClose();
-    router.refresh();
   }
 
   const existingPhotos = date?.photos ?? [];
@@ -117,8 +134,16 @@ export function CompleteDateModal({
           <Button variant="secondary" fullWidth onClick={onClose}>
             Abbrechen
           </Button>
-          <Button fullWidth loading={submitting} onClick={handleSubmit}>
-            {isEdit ? "Speichern" : "Erledigt speichern"}
+          <Button
+            fullWidth
+            loading={submitting || processing}
+            onClick={handleSubmit}
+          >
+            {processing
+              ? "Fotos werden verarbeitet …"
+              : isEdit
+                ? "Speichern"
+                : "Erledigt speichern"}
           </Button>
         </div>
       }

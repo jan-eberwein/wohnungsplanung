@@ -36,21 +36,26 @@ export function PlanDateModal({ open, target, onClose }: PlanDateModalProps) {
   async function handleSubmit() {
     if (!target || submitting) return;
     setSubmitting(true);
-    const result = await planDate({
-      ideaId: target.ideaId,
-      title: target.title,
-      emoji: target.emoji,
-      category: target.category,
-      scheduledFor: date || null,
-    });
-    setSubmitting(false);
-    if (result.error) {
-      show(result.error, "error");
-      return;
+    try {
+      const result = await planDate({
+        ideaId: target.ideaId,
+        title: target.title,
+        emoji: target.emoji,
+        category: target.category,
+        scheduledFor: date || null,
+      });
+      if (result.error) {
+        show(result.error, "error");
+        return;
+      }
+      show("Date eingeplant 💕");
+      onClose();
+      router.refresh();
+    } catch {
+      show("Einplanen fehlgeschlagen. Bitte erneut versuchen.", "error");
+    } finally {
+      setSubmitting(false);
     }
-    show("Date eingeplant 💕");
-    onClose();
-    router.refresh();
   }
 
   return (

@@ -30,22 +30,27 @@ export function AddIdeaModal({ open, onClose }: AddIdeaModalProps) {
       return;
     }
     setSubmitting(true);
-    const result = await createCustomIdea({
-      title,
-      emoji: emoji || null,
-      category,
-    });
-    setSubmitting(false);
-    if (result.error) {
-      show(result.error, "error");
-      return;
+    try {
+      const result = await createCustomIdea({
+        title,
+        emoji: emoji || null,
+        category,
+      });
+      if (result.error) {
+        show(result.error, "error");
+        return;
+      }
+      show("Eigene Idee hinzugefügt.");
+      setTitle("");
+      setEmoji("");
+      setCategory("sonstiges");
+      onClose();
+      router.refresh();
+    } catch {
+      show("Speichern fehlgeschlagen. Bitte erneut versuchen.", "error");
+    } finally {
+      setSubmitting(false);
     }
-    show("Eigene Idee hinzugefügt.");
-    setTitle("");
-    setEmoji("");
-    setCategory("sonstiges");
-    onClose();
-    router.refresh();
   }
 
   return (

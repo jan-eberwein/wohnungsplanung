@@ -6,6 +6,14 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  experimental: {
+    // Foto-Uploads laufen über Server Actions; das Default-Limit von 1 MB
+    // reicht für Handyfotos nicht. Fotos werden zwar client-seitig verkleinert,
+    // dieses Limit ist der Sicherheitspuffer (mehrere Fotos, Fallback-Fälle).
+    serverActions: {
+      bodySizeLimit: "20mb",
+    },
+  },
   images: {
     remotePatterns: [
       {
