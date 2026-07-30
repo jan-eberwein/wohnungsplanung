@@ -5,7 +5,8 @@ import { usePathname } from "next/navigation";
 import { NAV_ITEMS, isNavItemActive } from "./nav";
 
 /**
- * Mobile Tab-Bar: fixiert am unteren Rand, 6 Tabs, safe-area-fest.
+ * Mobile Tab-Bar: fixiert am unteren Rand, safe-area-fest. Die Spaltenzahl
+ * ergibt sich aus NAV_ITEMS, damit weitere Tabs nicht das Raster sprengen.
  * Aktiv/Inaktiv unterscheiden sich nur über Farbe + absolut positionierten
  * Punkt-Indikator — dadurch kein Layout-Shift beim Tab-Wechsel.
  */
@@ -17,7 +18,12 @@ export function TabBar() {
       aria-label="Hauptnavigation"
       className="glass-strong fixed inset-x-0 bottom-0 z-40 pb-safe md:hidden"
     >
-      <div className="grid h-[72px] grid-cols-6">
+      <div
+        className="grid h-[72px]"
+        style={{
+          gridTemplateColumns: `repeat(${NAV_ITEMS.length}, minmax(0, 1fr))`,
+        }}
+      >
         {NAV_ITEMS.map((item) => {
           const active = isNavItemActive(pathname, item.href);
           return (

@@ -11,8 +11,65 @@ export type RecipeIngredient = Tables<"recipe_ingredients">;
 export type Settlement = Tables<"settlements">;
 export type CookingLogEntry = Tables<"cooking_log">;
 export type WeekPlanEntry = Tables<"week_plan">;
+export type DateIdea = Tables<"date_ideas">;
+export type DateEntry = Tables<"dates">;
+export type DatePhoto = Tables<"date_photos">;
 
 export type SplitType = "50_50" | "custom" | "full";
+
+export type DateStatus = "geplant" | "erledigt";
+
+/** Ein Foto eines Dates inkl. server-seitig ergänzter signierter URL */
+export type DatePhotoWithUrl = DatePhoto & { url: string | null };
+
+export type DateEntryFull = DateEntry & {
+  photos: DatePhotoWithUrl[];
+  created_by_profile: Pick<
+    Profile,
+    "id" | "username" | "display_name" | "accent_color"
+  >;
+};
+
+export type DateCategoryKey =
+  | "zuhause"
+  | "kulinarik"
+  | "draussen"
+  | "kultur"
+  | "abenteuer"
+  | "reise"
+  | "kreativ"
+  | "saisonal"
+  | "sonstiges";
+
+export type DateCategoryMeta = {
+  key: DateCategoryKey;
+  label: string;
+  emoji: string;
+};
+
+/** Reihenfolge = Anzeigereihenfolge der Filter-Chips */
+export const DATE_CATEGORIES: DateCategoryMeta[] = [
+  { key: "zuhause", label: "Zuhause", emoji: "🏠" },
+  { key: "kulinarik", label: "Kulinarik", emoji: "🍽️" },
+  { key: "draussen", label: "Draußen", emoji: "🌳" },
+  { key: "kultur", label: "Kultur", emoji: "🎭" },
+  { key: "abenteuer", label: "Abenteuer", emoji: "🎢" },
+  { key: "reise", label: "Reise", emoji: "✈️" },
+  { key: "kreativ", label: "Kreativ", emoji: "🎨" },
+  { key: "saisonal", label: "Saisonal", emoji: "🍂" },
+  { key: "sonstiges", label: "Sonstiges", emoji: "💫" },
+];
+
+const CATEGORY_BY_KEY = new Map(
+  DATE_CATEGORIES.map((category) => [category.key, category])
+);
+
+export function dateCategoryMeta(key: string | null): DateCategoryMeta {
+  return (
+    CATEGORY_BY_KEY.get((key ?? "sonstiges") as DateCategoryKey) ??
+    CATEGORY_BY_KEY.get("sonstiges")!
+  );
+}
 
 export type ShoppingItemFull = ShoppingItem & {
   category: Category | null;

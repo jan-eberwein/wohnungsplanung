@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 
-export type ImageBucket = "receipts" | "recipes";
+export type ImageBucket = "receipts" | "recipes" | "dates";
 
 const SIGNED_URL_TTL_SECONDS = 60 * 60;
 

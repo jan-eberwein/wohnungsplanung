@@ -1,0 +1,277 @@
+-- Wohnungsplanung: "Dates" feature
+-- A catalog of date ideas the couple can browse, plan on a calendar date and
+-- later log as a memory with photos, notes and a rating. Same two-member
+-- sharing model as the rest of the app (RLS via public.is_member()).
+
+-- Catalog of ideas (seeded below, plus any the couple adds themselves).
+create table public.date_ideas (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  category text not null default 'sonstiges',
+  emoji text,
+  description text,
+  is_custom boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+-- A concrete date: planned for a day, later completed with a memory.
+-- title/emoji/category are snapshotted so a date survives edits or deletion
+-- of the underlying idea.
+create table public.dates (
+  id uuid primary key default gen_random_uuid(),
+  idea_id uuid references public.date_ideas(id) on delete set null,
+  title text not null,
+  emoji text,
+  category text,
+  status text not null default 'geplant' check (status in ('geplant', 'erledigt')),
+  scheduled_for date,
+  completed_on date,
+  location text,
+  notes text,
+  rating int check (rating between 1 and 5),
+  created_by uuid not null references public.profiles(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index dates_status_idx on public.dates (status);
+create index dates_scheduled_for_idx on public.dates (scheduled_for);
+create index dates_completed_on_idx on public.dates (completed_on);
+
+-- Photos attached to a logged date (several per date).
+create table public.date_photos (
+  id uuid primary key default gen_random_uuid(),
+  date_id uuid not null references public.dates(id) on delete cascade,
+  image_path text not null,
+  sort_order int not null default 0,
+  created_at timestamptz not null default now()
+);
+create index date_photos_date_id_idx on public.date_photos (date_id);
+
+create trigger dates_touch
+  before update on public.dates
+  for each row execute function public.touch_updated_at();
+
+-- RLS: readable/writable only by the two household members.
+alter table public.date_ideas enable row level security;
+alter table public.dates enable row level security;
+alter table public.date_photos enable row level security;
+
+create policy "members all date_ideas" on public.date_ideas
+  for all using (public.is_member()) with check (public.is_member());
+create policy "members all dates" on public.dates
+  for all using (public.is_member()) with check (public.is_member());
+create policy "members all date_photos" on public.date_photos
+  for all using (public.is_member()) with check (public.is_member());
+
+-- Private bucket for date photos; extend the shared storage policy to cover it.
+insert into storage.buckets (id, name, public)
+values ('dates', 'dates', false);
+
+drop policy if exists "members all storage objects" on storage.objects;
+create policy "members all storage objects" on storage.objects
+  for all using (bucket_id in ('receipts', 'recipes', 'dates') and public.is_member())
+  with check (bucket_id in ('receipts', 'recipes', 'dates') and public.is_member());
+
+-- ~200 seeded date ideas across eight categories.
+insert into public.date_ideas (emoji, title, category) values
+  ('🍿', 'Filmmarathon mit Lieblingssnacks', 'zuhause'),
+  ('🍳', 'Zusammen ein neues Rezept ausprobieren', 'zuhause'),
+  ('🧩', 'Puzzle-Abend mit Musik', 'zuhause'),
+  ('🎲', 'Brettspiel-Turnier', 'zuhause'),
+  ('🛁', 'Candle-Light-Bad zu zweit', 'zuhause'),
+  ('🍕', 'Pizza selbst belegen und backen', 'zuhause'),
+  ('🎨', 'Paint & Sip zuhause', 'zuhause'),
+  ('📺', 'Eine ganze Serie an einem Wochenende bingen', 'zuhause'),
+  ('🕯️', 'Candle-Light-Dinner im Wohnzimmer', 'zuhause'),
+  ('🛋️', 'Fort aus Decken und Kissen bauen', 'zuhause'),
+  ('🍫', 'Schokoladen-Tasting', 'zuhause'),
+  ('🍷', 'Wein-Verkostung mit Käseplatte', 'zuhause'),
+  ('🎧', 'Gemeinsam eine Playlist erstellen', 'zuhause'),
+  ('📚', 'Zusammen ein Buch vorlesen', 'zuhause'),
+  ('🧘', 'Paar-Yoga im Wohnzimmer', 'zuhause'),
+  ('🍜', 'Ramen-Abend selbst gemacht', 'zuhause'),
+  ('🎮', 'Koop-Videospiel durchspielen', 'zuhause'),
+  ('🧁', 'Cupcakes backen und dekorieren', 'zuhause'),
+  ('💆', 'Gegenseitige Massage', 'zuhause'),
+  ('☕', 'Langes Frühstück im Bett', 'zuhause'),
+  ('🌱', 'Kräutergarten am Fensterbrett anlegen', 'zuhause'),
+  ('📸', 'Fotoshooting in den eigenen vier Wänden', 'zuhause'),
+  ('🍸', 'Cocktails mixen lernen', 'zuhause'),
+  ('🗺️', 'Nächste Reise gemeinsam planen', 'zuhause'),
+  ('💌', 'Sich gegenseitig Liebesbriefe schreiben', 'zuhause'),
+  ('🕹️', 'Retro-Spieleabend', 'zuhause'),
+  ('🍝', 'Pasta von Grund auf selbst machen', 'zuhause'),
+  ('🎬', 'Einen eigenen Kurzfilm drehen', 'zuhause'),
+  ('🫖', 'Tee-Zeremonie am Sonntagnachmittag', 'zuhause'),
+  ('🃏', 'Kartenspiel-Abend bei Kerzenlicht', 'zuhause'),
+  ('🍣', 'Sushi essen gehen', 'kulinarik'),
+  ('🍔', 'Die beste Burger-Bude der Stadt finden', 'kulinarik'),
+  ('🥐', 'Frühstück im Lieblingscafé', 'kulinarik'),
+  ('🍦', 'Eisdielen-Tour', 'kulinarik'),
+  ('🍕', 'Eine neue Pizzeria testen', 'kulinarik'),
+  ('🌮', 'Street-Food-Markt erkunden', 'kulinarik'),
+  ('🍷', 'Weinverkostung im Weingut', 'kulinarik'),
+  ('🍺', 'Craft-Beer-Tasting in der Brauerei', 'kulinarik'),
+  ('🥘', 'Restaurant einer fremden Küche ausprobieren', 'kulinarik'),
+  ('🧀', 'Käse & Wein am Bauernmarkt', 'kulinarik'),
+  ('🍰', 'Kaffee und Kuchen im Traditionscafé', 'kulinarik'),
+  ('🥂', 'Ausgiebiger Sonntagsbrunch', 'kulinarik'),
+  ('🍫', 'Schokoladenmanufaktur besuchen', 'kulinarik'),
+  ('☕', 'Neue Kaffeeröster entdecken', 'kulinarik'),
+  ('🫓', 'Foodtruck-Festival besuchen', 'kulinarik'),
+  ('🍤', 'All-you-can-eat wagen', 'kulinarik'),
+  ('🥩', 'Steakhouse-Date', 'kulinarik'),
+  ('🍨', 'Dessert-Bar besuchen', 'kulinarik'),
+  ('🌯', 'Ein veganes Lokal testen', 'kulinarik'),
+  ('🍲', 'Fondue- oder Raclette-Abend', 'kulinarik'),
+  ('🍮', 'Patisserie-Tour', 'kulinarik'),
+  ('🍹', 'Rooftop-Bar bei Sonnenuntergang', 'kulinarik'),
+  ('🧋', 'Bubble-Tea-Verkostung', 'kulinarik'),
+  ('🥟', 'Dim-Sum-Brunch', 'kulinarik'),
+  ('🍸', 'Speakeasy-Cocktailbar aufspüren', 'kulinarik'),
+  ('🍜', 'Eine Ramen-Bar besuchen', 'kulinarik'),
+  ('🥾', 'Wanderung mit Picknick', 'draussen'),
+  ('🚲', 'Radtour entlang des Flusses', 'draussen'),
+  ('🌅', 'Sonnenaufgang gemeinsam anschauen', 'draussen'),
+  ('🌇', 'Sonnenuntergang von einem Hügel', 'draussen'),
+  ('🧺', 'Picknick im Park', 'draussen'),
+  ('🦆', 'Spaziergang um den See', 'draussen'),
+  ('🏞️', 'Ausflug zu einem Wasserfall', 'draussen'),
+  ('⛰️', 'Einen Gipfel besteigen', 'draussen'),
+  ('🌳', 'Waldbaden und Achtsamkeitsspaziergang', 'draussen'),
+  ('🚣', 'Bootfahren am See', 'draussen'),
+  ('🏊', 'Baden im See', 'draussen'),
+  ('🌸', 'Botanischen Garten besuchen', 'draussen'),
+  ('🐐', 'Streichelzoo oder Bauernhof besuchen', 'draussen'),
+  ('🌻', 'Ein Sonnenblumenfeld besuchen', 'draussen'),
+  ('🍇', 'Beeren oder Obst selbst pflücken', 'draussen'),
+  ('🏕️', 'Eine Nacht campen', 'draussen'),
+  ('🔭', 'Sterne beobachten', 'draussen'),
+  ('🪁', 'Einen Drachen steigen lassen', 'draussen'),
+  ('🛼', 'Inline-Skaten oder Rollschuhfahren', 'draussen'),
+  ('🎣', 'Angeln gehen', 'draussen'),
+  ('🐕', 'Im Tierheim mit einem Hund Gassi gehen', 'draussen'),
+  ('🌰', 'Herbstspaziergang mit Kastanien sammeln', 'draussen'),
+  ('⛲', 'Neue Stadtteile zu Fuß erkunden', 'draussen'),
+  ('🚡', 'Mit der Seilbahn auf den Berg', 'draussen'),
+  ('🏖️', 'Tag am Strand oder Badesee', 'draussen'),
+  ('🌄', 'Frühstück auf einem Berggipfel', 'draussen'),
+  ('🚶', 'Nachtspaziergang durch die beleuchtete Stadt', 'draussen'),
+  ('🧗', 'Einen Klettersteig gehen', 'draussen'),
+  ('🛶', 'Kanu- oder Kajaktour', 'draussen'),
+  ('🐝', 'Ein Schmetterlingshaus besuchen', 'draussen'),
+  ('🦢', 'Enten füttern am Teich', 'draussen'),
+  ('🌲', 'Barfußweg oder Naturerlebnispfad', 'draussen'),
+  ('🏇', 'Ausritt oder Reitstunde zu zweit', 'draussen'),
+  ('🚂', 'Fahrt mit einer Nostalgie-Bahn', 'draussen'),
+  ('🎬', 'Klassischer Kino-Abend', 'kultur'),
+  ('🎭', 'Theatervorstellung besuchen', 'kultur'),
+  ('🖼️', 'Kunstmuseum erkunden', 'kultur'),
+  ('🏛️', 'Eine Ausstellung besuchen', 'kultur'),
+  ('🎼', 'Klassisches Konzert', 'kultur'),
+  ('🎤', 'Lieblingsband live sehen', 'kultur'),
+  ('🎟️', 'Ein Musical besuchen', 'kultur'),
+  ('🩰', 'Ballett oder Oper', 'kultur'),
+  ('📖', 'Lesung oder Poetry Slam', 'kultur'),
+  ('🎪', 'Zirkus oder Varieté', 'kultur'),
+  ('🎨', 'Vernissage oder Galerie-Eröffnung', 'kultur'),
+  ('🏰', 'Schloss oder Burg besichtigen', 'kultur'),
+  ('🎥', 'Open-Air-Kino', 'kultur'),
+  ('🎸', 'Kleines Konzert im Jazzclub', 'kultur'),
+  ('🕌', 'Architektur-Spaziergang', 'kultur'),
+  ('📚', 'Im Antiquariat stöbern', 'kultur'),
+  ('🖌️', 'Töpfer- oder Malkurs', 'kultur'),
+  ('💃', 'Tanzkurs (Salsa, Walzer …)', 'kultur'),
+  ('🎻', 'Sommerkonzert im Freien', 'kultur'),
+  ('🧭', 'Stadtführung im eigenen Ort', 'kultur'),
+  ('🏺', 'Kunsthandwerksmarkt besuchen', 'kultur'),
+  ('🎞️', 'Ein Filmfestival besuchen', 'kultur'),
+  ('🗿', 'Skulpturenpark erkunden', 'kultur'),
+  ('🎙️', 'Live-Kabarett oder Comedy', 'kultur'),
+  ('🎠', 'Historischen Vergnügungspark besuchen', 'kultur'),
+  ('🧗', 'Kletterhalle oder Bouldern', 'abenteuer'),
+  ('🏹', 'Bogenschießen ausprobieren', 'abenteuer'),
+  ('🎯', 'Einen Escape Room lösen', 'abenteuer'),
+  ('🕵️', 'Krimi-Dinner erleben', 'abenteuer'),
+  ('🎢', 'Freizeitpark-Tag', 'abenteuer'),
+  ('🏎️', 'Kartfahren', 'abenteuer'),
+  ('🎳', 'Bowling-Abend', 'abenteuer'),
+  ('🎱', 'Billard spielen', 'abenteuer'),
+  ('🏌️', 'Minigolf-Turnier', 'abenteuer'),
+  ('🪂', 'Tandem-Fallschirmsprung', 'abenteuer'),
+  ('🎈', 'Heißluftballonfahrt', 'abenteuer'),
+  ('⛷️', 'Skifahren oder Snowboarden', 'abenteuer'),
+  ('⛸️', 'Eislaufen gehen', 'abenteuer'),
+  ('🛷', 'Rodeln gehen', 'abenteuer'),
+  ('🏄', 'Surfen oder SUP lernen', 'abenteuer'),
+  ('🚁', 'Rundflug im Kleinflugzeug', 'abenteuer'),
+  ('🤿', 'Schnorcheln oder Tauchen probieren', 'abenteuer'),
+  ('🧗‍♀️', 'Hochseilgarten oder Kletterpark', 'abenteuer'),
+  ('🛝', 'Therme mit Rutschen', 'abenteuer'),
+  ('🚣‍♀️', 'Wildwasser-Rafting', 'abenteuer'),
+  ('🎿', 'Langlaufen im Winter', 'abenteuer'),
+  ('🛹', 'Skateboarden lernen', 'abenteuer'),
+  ('🏓', 'Tischtennis-Meisterschaft', 'abenteuer'),
+  ('🤺', 'Fechten schnuppern', 'abenteuer'),
+  ('🕶️', 'VR-Arcade besuchen', 'abenteuer'),
+  ('🧩', 'Live-Escape-Adventure in der Stadt', 'abenteuer'),
+  ('🏙️', 'Städtetrip übers Wochenende', 'reise'),
+  ('🗺️', 'Roadtrip ohne festes Ziel', 'reise'),
+  ('🏔️', 'Wochenende in den Bergen', 'reise'),
+  ('🏖️', 'Kurzurlaub am Meer', 'reise'),
+  ('🚂', 'Zugreise in eine neue Stadt', 'reise'),
+  ('🏕️', 'Glamping-Wochenende', 'reise'),
+  ('🛖', 'Eine Nacht in einer Berghütte', 'reise'),
+  ('🌃', 'Übernachtung in einem besonderen Hotel', 'reise'),
+  ('♨️', 'Wellness-Wochenende in der Therme', 'reise'),
+  ('🍇', 'Eine Weinregion besuchen', 'reise'),
+  ('🏰', 'Roadtrip zu Burgen und Schlössern', 'reise'),
+  ('🌊', 'Ausflug an einen anderen See', 'reise'),
+  ('🚐', 'Vanlife-Wochenende', 'reise'),
+  ('🧳', 'Überraschungsreise füreinander planen', 'reise'),
+  ('🗼', 'Ein neues Land besuchen', 'reise'),
+  ('🏝️', 'Inselhopping', 'reise'),
+  ('⛺', 'Sternenhimmel-Camping abseits der Stadt', 'reise'),
+  ('🚴', 'Mehrtägige Radtour', 'reise'),
+  ('🏞️', 'Einen Nationalpark erkunden', 'reise'),
+  ('🎡', 'Tagesausflug in eine Nachbarstadt', 'reise'),
+  ('🛤️', 'Mit dem Nachtzug verreisen', 'reise'),
+  ('🏨', 'Staycation im eigenen Ort wie Touristen', 'reise'),
+  ('🎨', 'Gemeinsam ein Bild malen', 'kreativ'),
+  ('🏺', 'Einen Töpferkurs besuchen', 'kreativ'),
+  ('📷', 'Foto-Spaziergang mit einem Thema', 'kreativ'),
+  ('🌿', 'Einen Blumenkranz binden', 'kreativ'),
+  ('🕯️', 'Kerzen selbst gießen', 'kreativ'),
+  ('🧼', 'Seifen selbst machen', 'kreativ'),
+  ('🎼', 'Zusammen ein Lied schreiben', 'kreativ'),
+  ('🪴', 'Pflanzen umtopfen und Urban Jungle', 'kreativ'),
+  ('🖊️', 'Vision-Board fürs nächste Jahr basteln', 'kreativ'),
+  ('🧵', 'Makramee oder Stricken lernen', 'kreativ'),
+  ('🍶', 'Keramik bemalen im Studio', 'kreativ'),
+  ('📔', 'Gemeinsames Erinnerungsbuch gestalten', 'kreativ'),
+  ('🎥', 'Ein Reel zusammen drehen', 'kreativ'),
+  ('🖼️', 'Fotobuch der letzten Dates erstellen', 'kreativ'),
+  ('🪵', 'Ein DIY-Möbelstück bauen', 'kreativ'),
+  ('🎂', 'Eine Torte für einen Anlass gestalten', 'kreativ'),
+  ('🧶', 'Ein gemeinsames Bastelprojekt', 'kreativ'),
+  ('🌾', 'Trockenblumen-Deko basteln', 'kreativ'),
+  ('🎄', 'Weihnachtsmarkt mit Punsch', 'saisonal'),
+  ('⛄', 'Einen Schneemann bauen', 'saisonal'),
+  ('🎃', 'Kürbis schnitzen zu Halloween', 'saisonal'),
+  ('🌷', 'Frühlingsspaziergang durch die Blüte', 'saisonal'),
+  ('🍂', 'Herbstwanderung im bunten Laub', 'saisonal'),
+  ('🎆', 'Silvester zu zweit feiern', 'saisonal'),
+  ('🐣', 'Ostereier bemalen', 'saisonal'),
+  ('🌊', 'Sommer-Badetag am See', 'saisonal'),
+  ('🍉', 'Sommerpicknick mit Wassermelone', 'saisonal'),
+  ('🎇', 'Ein Feuerwerk anschauen', 'saisonal'),
+  ('🕎', 'Adventkranz gemeinsam binden', 'saisonal'),
+  ('❄️', 'Winterspaziergang mit heißer Schokolade', 'saisonal'),
+  ('🌰', 'Maroni und Punsch am Christkindlmarkt', 'saisonal'),
+  ('🏠', 'Ein Lebkuchenhaus bauen', 'saisonal'),
+  ('🌸', 'Kirschblüten bewundern', 'saisonal'),
+  ('🏮', 'Laternen-Wanderung im Herbst', 'saisonal'),
+  ('🎉', 'Einen eigenen Motto-Abend veranstalten', 'saisonal'),
+  ('🌡️', 'Heiße Quelle oder Therme im Winter', 'saisonal'),
+  ('🍓', 'Erdbeeren pflücken im Frühsommer', 'saisonal'),
+  ('🥧', 'Zusammen Weihnachtskekse backen', 'saisonal');

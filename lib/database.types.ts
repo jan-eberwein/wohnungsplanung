@@ -74,6 +74,134 @@ export type Database = {
           },
         ]
       }
+      date_ideas: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          emoji: string | null
+          id: string
+          is_custom: boolean
+          title: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          emoji?: string | null
+          id?: string
+          is_custom?: boolean
+          title: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          emoji?: string | null
+          id?: string
+          is_custom?: boolean
+          title?: string
+        }
+        Relationships: []
+      }
+      date_photos: {
+        Row: {
+          created_at: string
+          date_id: string
+          id: string
+          image_path: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          date_id: string
+          id?: string
+          image_path: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          date_id?: string
+          id?: string
+          image_path?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "date_photos_date_id_fkey"
+            columns: ["date_id"]
+            isOneToOne: false
+            referencedRelation: "dates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dates: {
+        Row: {
+          category: string | null
+          completed_on: string | null
+          created_at: string
+          created_by: string
+          emoji: string | null
+          id: string
+          idea_id: string | null
+          location: string | null
+          notes: string | null
+          rating: number | null
+          scheduled_for: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          completed_on?: string | null
+          created_at?: string
+          created_by: string
+          emoji?: string | null
+          id?: string
+          idea_id?: string | null
+          location?: string | null
+          notes?: string | null
+          rating?: number | null
+          scheduled_for?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          completed_on?: string | null
+          created_at?: string
+          created_by?: string
+          emoji?: string | null
+          id?: string
+          idea_id?: string | null
+          location?: string | null
+          notes?: string | null
+          rating?: number | null
+          scheduled_for?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dates_idea_id_fkey"
+            columns: ["idea_id"]
+            isOneToOne: false
+            referencedRelation: "date_ideas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pantry_items: {
         Row: {
           id: string

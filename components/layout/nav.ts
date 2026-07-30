@@ -1,5 +1,6 @@
 import {
   CookingPot,
+  Heart,
   House,
   ListTodo,
   Package,
@@ -23,6 +24,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/einkaufen", label: "Einkaufen", shortLabel: "Einkaufen", icon: ShoppingCart },
   { href: "/vorrat", label: "Vorrat", shortLabel: "Vorrat", icon: Package },
   { href: "/rezepte", label: "Rezepte", shortLabel: "Rezepte", icon: CookingPot },
+  { href: "/dates", label: "Dates", shortLabel: "Dates", icon: Heart },
   { href: "/einstellungen", label: "Einstellungen", shortLabel: "Mehr", icon: Settings },
 ];
 

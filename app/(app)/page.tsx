@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile, getProfiles } from "@/lib/data/profiles";
+import { getNextPlannedDate } from "@/lib/data/dates";
 import { getLowStockItems } from "@/lib/data/pantry";
 import { getBalance } from "@/lib/data/purchases";
 import { getRecipesWithCookability } from "@/lib/data/recipes";
@@ -7,11 +8,12 @@ import { getOpenItemCount } from "@/lib/data/shopping";
 import { formatDate, formatWeekday } from "@/lib/format";
 import { BalanceCard } from "@/components/dashboard/BalanceCard";
 import { LowStockCard } from "@/components/dashboard/LowStockCard";
+import { NextDateCard } from "@/components/dashboard/NextDateCard";
 import { RecipeSuggestions } from "@/components/dashboard/RecipeSuggestions";
 import { ShoppingListCard } from "@/components/dashboard/ShoppingListCard";
 
 export default async function DashboardPage() {
-  const [profile, profiles, balance, lowStockItems, recipes, openCount] =
+  const [profile, profiles, balance, lowStockItems, recipes, openCount, nextDate] =
     await Promise.all([
       getCurrentProfile(),
       getProfiles(),
@@ -19,6 +21,7 @@ export default async function DashboardPage() {
       getLowStockItems(),
       getRecipesWithCookability(),
       getOpenItemCount(),
+      getNextPlannedDate(),
     ]);
   if (!profile) redirect("/login");
 
@@ -41,9 +44,8 @@ export default async function DashboardPage() {
         <div className="md:col-span-2">
           <RecipeSuggestions recipes={recipes} />
         </div>
-        <div className="md:col-span-2">
-          <ShoppingListCard openCount={openCount} />
-        </div>
+        <ShoppingListCard openCount={openCount} />
+        <NextDateCard next={nextDate} />
       </div>
     </div>
   );
